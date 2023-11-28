@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, Inject, Injector, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Task } from '../../models/task.model';
 import { FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -13,33 +13,24 @@ import { FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
   styleUrl: './home.component.scss'
 })
 export class HomeComponent {
-  tasks = signal<Task[]>([
-    {
-      id: Date.now(),
-      title: "Instalar Angular CLI",
-      done: false
-    },
-    {
-      id: Date.now(),
-      title: "Crear proyecto",
-      done: false
-    },
-    {
-      id: Date.now(),
-      title: "Crear componentes",
-      done: false
-    },
-    {
-      id: Date.now(),
-      title: "Crear servicios",
-      done: false
-    },
-    {
-      id: Date.now(),
-      title: "Crear pipes",
-      done: false
-    },
-  ])
+  tasks = signal<Task[]>([])
+
+  filter = signal<'all' | 'pending' | 'completed'>('all');
+
+  tasksFiltered = computed(() => {
+    const filter = this.filter();
+    const tasks = this.tasks();
+    switch (filter) {
+      case 'all':
+        return tasks;
+      case 'completed':
+        return tasks.filter(task => task.done);
+      case 'pending':
+        return tasks.filter(task => !task.done);
+      default:
+        return tasks;
+    }
+  })
 
   newTaskCtrl = new FormControl('', {
     nonNullable: true,
@@ -48,6 +39,23 @@ export class HomeComponent {
 
     ]
   });
+
+  inhector = inject(Injector);
+  
+  ngOnInit(){
+    const tasks = localStorage.getItem('tasks');
+    if(tasks) {
+      this.tasks.set(JSON.parse(tasks));
+    }
+    this.trackTasks();
+  }
+
+  trackTasks(){
+    effect(() => {
+      const task =  this.tasks();
+      localStorage.setItem('tasks', JSON.stringify(task));
+    }, { injector: this.inhector})
+  }
 
   changeHandler() {
     if(this.newTaskCtrl.valid) {
@@ -125,5 +133,21 @@ export class HomeComponent {
         };
       })
     });
+  }
+
+  escape() {
+    
+    this.tasks.update((tasks) => {
+      return tasks.map((task) => {
+        return {
+          ...task,
+          editing: false,
+        };
+      })
+    });
+  } 
+
+  changeFilter(filter: 'all' | 'pending' | 'completed') {
+    this.filter.set(filter);
   }
 }
